@@ -347,6 +347,114 @@ else:
 # ---------------------------------------------------------
 st.markdown("## ⏱️ Evolução Temporal")
 
+with st.expander("Volume agregado e tendência", expanded=True):
+    freq_choice = st.radio(
+        "Granularidade do agregado",
+        ["Mensal", "Trimestral"],
+        horizontal=True,
+    )
+
+    if {"ANO", "MES"}.issubset(fdf.columns):
+        period_df = fdf.dropna(subset=["ANO", "MES"]).copy()
+        period_df["ANO"] = period_df["ANO"].astype(int)
+        period_df["MES"] = period_df["MES"].astype(int)
+
+        if freq_choice == "Trimestral":
+            period_df["TRIMESTRE"] = ((period_df["MES"] - 1) // 3 + 1).astype(int)
+            grouped = (
+                period_df.groupby(["ANO", "TRIMESTRE"]).size().reset_index(name="Quantidade")
+            )
+            grouped["LABEL"] = grouped.apply(
+                lambda r: f"T{int(r['TRIMESTRE'])}/{int(r['ANO'])}", axis=1
+            )
+            grouped["PERIODO_DATA"] = pd.PeriodIndex(
+                year=grouped["ANO"], quarter=grouped["TRIMESTRE"], freq="Q"
+            ).to_timestamp()
+            compare_col = "TRIMESTRE"
+        else:
+            grouped = (
+                period_df.groupby(["ANO", "MES", "MES_NOME"])
+                .size()
+                .reset_index(name="Quantidade")
+            )
+            grouped["LABEL"] = grouped.apply(
+                lambda r: f"{r['MES_NOME']}/{int(r['ANO'])}", axis=1
+            )
+            grouped["PERIODO_DATA"] = pd.to_datetime(
+                dict(year=grouped["ANO"], month=grouped["MES"], day=1)
+            )
+            compare_col = "MES"
+
+        grouped = grouped.sort_values("PERIODO_DATA")
+        grouped["ANO_PREV"] = grouped["ANO"] - 1
+        prev = grouped[["ANO", compare_col, "Quantidade"]].rename(
+            columns={"ANO": "ANO_PREV", "Quantidade": "Quantidade_Ano_Anterior"}
+        )
+        grouped = grouped.merge(prev, on=["ANO_PREV", compare_col], how="left")
+        grouped["VAR_ABS"] = grouped["Quantidade"] - grouped["Quantidade_Ano_Anterior"]
+        grouped["VAR_PCT"] = np.where(
+            grouped["Quantidade_Ano_Anterior"] > 0,
+            grouped["VAR_ABS"] / grouped["Quantidade_Ano_Anterior"] * 100,
+            np.nan,
+        )
+
+        if not grouped.empty:
+            fig_period = px.bar(
+                grouped,
+                x="PERIODO_DATA",
+                y="Quantidade",
+                text="Quantidade",
+                title=f"Volume {freq_choice.lower()} de manifestações",
+            )
+            fig_period.update_traces(textposition="outside")
+            fig_period.update_layout(
+                xaxis_title="Período", yaxis_title="Quantidade", showlegend=False
+            )
+            fig_period.update_xaxes(tickformat="%b/%Y")
+            st.plotly_chart(fig_period, use_container_width=True)
+
+            last_row = grouped.iloc[-1]
+            c_month1, c_month2, c_month3 = st.columns(3)
+            c_month1.metric(
+                "Volume do período mais recente",
+                (
+                    int(last_row["Quantidade"])
+                    if not pd.isna(last_row["Quantidade"])
+                    else "—"
+                ),
+                delta=f"{last_row['LABEL']}",
+            )
+            c_month2.metric(
+                "Variação absoluta vs ano anterior",
+                (
+                    f"{int(last_row['VAR_ABS']):+} casos"
+                    if not pd.isna(last_row["VAR_ABS"])
+                    else "—"
+                ),
+                delta=(
+                    f"Base {int(last_row['Quantidade_Ano_Anterior'])}"
+                    if not pd.isna(last_row["Quantidade_Ano_Anterior"])
+                    else "Sem histórico"
+                ),
+            )
+            c_month3.metric(
+                "Variação percentual vs ano anterior",
+                (
+                    f"{last_row['VAR_PCT']:.1f}%"
+                    if not pd.isna(last_row["VAR_PCT"])
+                    else "—"
+                ),
+                delta=(
+                    f"Comparado a {int(last_row['ANO_PREV'])}"
+                    if not pd.isna(last_row["ANO_PREV"])
+                    else "Sem histórico"
+                ),
+            )
+        else:
+            st.info("Não há dados suficientes para compor o agregado do período selecionado.")
+    else:
+        st.info("Colunas ANO/MÊS não estão disponíveis nos dados filtrados.")
+
 if fdf["DATA"].notna().any():
     evol = fdf.groupby("DATA").size().reset_index(name="Quantidade")
     evol = evol.sort_values("DATA")
