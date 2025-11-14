@@ -667,6 +667,90 @@ with colH:
         st.info("Não há registros resolvidos com prazo para análise de SLA por setor.")
 
 # ---------------------------------------------------------
+# SLA E NPS POR CRITICIDADE
+# ---------------------------------------------------------
+st.markdown("## 🚦 SLA e NPS por criticidade")
+
+colCrit1, colCrit2 = st.columns(2)
+
+with colCrit1:
+    if not base_sla.empty:
+        sla_crit = (
+            base_sla.groupby(["CRITICIDADE", "SLA STATUS"])
+            .size()
+            .reset_index(name="Quantidade")
+        )
+        sla_crit = sla_crit.dropna(subset=["CRITICIDADE"])
+        if not sla_crit.empty:
+            sla_crit["Total Criticidade"] = sla_crit.groupby("CRITICIDADE")[
+                "Quantidade"
+            ].transform("sum")
+            sla_crit["pct"] = sla_crit["Quantidade"] / sla_crit["Total Criticidade"] * 100
+            fig_sla_crit = px.bar(
+                sla_crit,
+                x="CRITICIDADE",
+                y="pct",
+                color="SLA STATUS",
+                text="pct",
+                title="SLA dos casos resolvidos por criticidade",
+                labels={"pct": "% do total"},
+            )
+            fig_sla_crit.update_traces(texttemplate="%{text:.1f}%", textposition="inside")
+            fig_sla_crit.update_layout(
+                yaxis_title="% dos casos",
+                legend_title="SLA",
+                barmode="stack",
+            )
+            st.plotly_chart(fig_sla_crit, use_container_width=True)
+
+            tabela_sla = sla_crit[
+                ["CRITICIDADE", "SLA STATUS", "Quantidade", "pct"]
+            ].copy()
+            tabela_sla["pct"] = tabela_sla["pct"].map(lambda v: f"{v:.1f}%")
+            st.dataframe(
+                tabela_sla,
+                use_container_width=True,
+                hide_index=True,
+            )
+        else:
+            st.info("Criticidades com SLA resolvido não estão disponíveis nos filtros atuais.")
+    else:
+        st.info("Não há registros resolvidos para análise de SLA por criticidade.")
+
+with colCrit2:
+    if not base_nps.empty:
+        nps_crit = (
+            base_nps.dropna(subset=["CRITICIDADE", "NOTA_NUM"])
+            .groupby("CRITICIDADE")
+            .agg(Notas=("NOTA_NUM", "count"), Media_NPS=("NOTA_NUM", "mean"))
+            .reset_index()
+        )
+        if not nps_crit.empty:
+            fig_nps_crit = px.bar(
+                nps_crit,
+                x="CRITICIDADE",
+                y="Media_NPS",
+                text="Media_NPS",
+                title="Nota média de NPS por criticidade",
+            )
+            fig_nps_crit.update_traces(texttemplate="%{text:.1f}", textposition="outside")
+            fig_nps_crit.update_layout(yaxis_title="Nota média")
+            st.plotly_chart(fig_nps_crit, use_container_width=True)
+
+            tabela_nps = nps_crit.copy()
+            tabela_nps["Media_NPS"] = tabela_nps["Media_NPS"].map(
+                lambda v: f"{v:.2f}"
+            )
+            tabela_nps = tabela_nps.rename(
+                columns={"Notas": "Registros avaliados", "Media_NPS": "NPS médio"}
+            )
+            st.dataframe(tabela_nps, use_container_width=True, hide_index=True)
+        else:
+            st.info("Não há criticidades com notas de NPS preenchidas.")
+    else:
+        st.info("Não há dados suficientes de NPS para análise por criticidade.")
+
+# ---------------------------------------------------------
 # NPS – DISTRIBUIÇÃO
 # ---------------------------------------------------------
 st.markdown("## ❤️ Distribuição de NPS")
