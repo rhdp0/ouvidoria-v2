@@ -450,13 +450,31 @@ kpi_extra = [
     },
 ]
 
-render_kpi_grid(kpi_overview)
+with st.container():
+    st.markdown("### Volume & Satisfação")
+    st.caption("Indicadores consolidados considerando apenas os casos filtrados.")
+    render_kpi_grid(kpi_overview)
+
 st.divider()
-render_kpi_grid(kpi_status)
+
+with st.container():
+    st.markdown("### Status Operacional")
+    st.caption("Percentuais calculados sobre o total filtrado.")
+    render_kpi_grid(kpi_status)
+
 st.divider()
-render_kpi_grid(kpi_nps)
+
+with st.container():
+    st.markdown("### Perfil NPS")
+    st.caption("Base formada apenas por manifestações com nota registrada.")
+    render_kpi_grid(kpi_nps)
+
 st.divider()
-render_kpi_grid(kpi_extra)
+
+with st.container():
+    st.markdown("### Engajamento & Retornos")
+    st.caption("Indicadores complementares relativos aos casos filtrados.")
+    render_kpi_grid(kpi_extra)
 
 if retorno_pos_contato > 0:
     st.caption(
