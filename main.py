@@ -77,6 +77,17 @@ COL_CANONICAL = {
 }
 
 
+def _is_marked(value) -> bool:
+    """Interpreta valores marcados (sim/x/etc.) como verdadeiros."""
+    if pd.isna(value):
+        return False
+
+    text = _normalize_text(str(value))
+    if text in {"", "nao", "na", "n"}:
+        return False
+    return True
+
+
 def rename_columns(df: pd.DataFrame) -> pd.DataFrame:
     """Renomeia colunas da planilha para nomes canônicos."""
     rename_map = {}
@@ -309,6 +320,33 @@ atraso_count = (fdf["SLA STATUS"] == "Em atraso").sum()
 andamento_pct = (andamento_count / total * 100) if total else 0.0
 atraso_pct = (atraso_count / total * 100) if total else 0.0
 
+solicitado_count = (
+    fdf["SOLICITADO CONTATO"].apply(_is_marked).sum()
+    if "SOLICITADO CONTATO" in fdf.columns
+    else 0
+)
+solicitado_pct = (solicitado_count / total * 100) if total else 0.0
+
+retorno_paciente_count = (
+    fdf["DATA DE RETORNO AO PACIENTE"].notna().sum()
+    if "DATA DE RETORNO AO PACIENTE" in fdf.columns
+    else 0
+)
+retorno_pct = (retorno_paciente_count / total * 100) if total else 0.0
+
+retorno_pos_contato = 0
+if {"SOLICITADO CONTATO", "DATA DE RETORNO AO PACIENTE"}.issubset(fdf.columns):
+    solicit_mask = fdf["SOLICITADO CONTATO"].apply(_is_marked)
+    retorno_pos_contato = fdf["DATA DE RETORNO AO PACIENTE"].notna() & solicit_mask
+    retorno_pos_contato = retorno_pos_contato.sum()
+
+plano_count = 0
+plano_pct = 0.0
+if "PLANO DE AÇÃO" in fdf.columns:
+    plano_series = fdf["PLANO DE AÇÃO"].fillna("").astype(str).str.strip()
+    plano_count = (plano_series != "").sum()
+    plano_pct = (plano_count / total * 100) if total else 0.0
+
 c1, c2, c3, c4 = st.columns(4)
 c1.metric("Total de manifestações", total)
 c2.metric("NPS Geral", f"{nps:.0f}")
@@ -341,6 +379,32 @@ else:
     kc1.metric("Promotores", "0")
     kc2.metric("Neutros", "0")
     kc3.metric("Detratores", "0")
+
+c_extra1, c_extra2, c_extra3 = st.columns(3)
+c_extra1.metric(
+    "Solicitado contato",
+    f"{solicitado_pct:.1f}%",
+    delta=f"{solicitado_count} casos",
+)
+c_extra2.metric(
+    "Retorno ao paciente registrado",
+    retorno_paciente_count,
+    delta=(
+        f"{retorno_pct:.1f}% do total"
+        if retorno_paciente_count > 0
+        else "Sem registros"
+    ),
+)
+c_extra3.metric(
+    "Planos de ação preenchidos",
+    plano_count,
+    delta=(f"{plano_pct:.1f}% do total" if plano_count > 0 else "Sem registros"),
+)
+
+if retorno_pos_contato > 0:
+    st.caption(
+        f"• {retorno_pos_contato} manifestações possuem 'Solicitado contato' e já contam com retorno registrado."
+    )
 
 # ---------------------------------------------------------
 # EVOLUÇÃO TEMPORAL
@@ -558,6 +622,34 @@ with colD:
         st.plotly_chart(fig_status, use_container_width=True)
     else:
         st.info("Sem dados de status nos filtros atuais.")
+
+if "ÁREA" in fdf.columns:
+    area_df = (
+        fdf["ÁREA"].value_counts().reset_index(name="Quantidade").rename(columns={"index": "ÁREA"})
+    )
+else:
+    area_df = pd.DataFrame()
+
+if not area_df.empty:
+    area_df["%"] = area_df["Quantidade"] / total * 100 if total else 0
+    st.markdown("### Distribuição por área")
+    fig_area = px.bar(
+        area_df,
+        x="Quantidade",
+        y="ÁREA",
+        orientation="h",
+        text="Quantidade",
+        title="Manifestações por área",
+    )
+    fig_area.update_traces(textposition="outside")
+    fig_area.update_layout(yaxis_title="Área", xaxis_title="Quantidade")
+    st.plotly_chart(fig_area, use_container_width=True)
+
+    tabela_area = area_df.copy()
+    tabela_area["%"] = tabela_area["%"].map(lambda v: f"{v:.1f}%")
+    st.dataframe(tabela_area, use_container_width=True, hide_index=True)
+else:
+    st.info("Sem dados de área para os filtros atuais.")
 
 # ---------------------------------------------------------
 # SETORES, SLA E NPS
