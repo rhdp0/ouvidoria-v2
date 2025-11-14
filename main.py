@@ -178,15 +178,14 @@ def add_date_parts(df: pd.DataFrame) -> pd.DataFrame:
 def add_nps_group(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
     df["NOTA_NUM"] = pd.to_numeric(df.get("NOTA"), errors="coerce")
-    df["NPS GRUPO"] = np.where(
-        df["NOTA_NUM"] >= 9,
-        "Promotor",
-        np.where(
-            df["NOTA_NUM"] >= 7,
-            "Neutro",
-            np.where(df["NOTA_NUM"] <= 6, "Detrator", np.nan),
-        ),
-    )
+    nps_grupo = pd.Series(pd.NA, index=df.index, dtype="object")
+
+    notas = df["NOTA_NUM"]
+    nps_grupo.loc[notas >= 9] = "Promotor"
+    nps_grupo.loc[(notas >= 7) & (notas < 9)] = "Neutro"
+    nps_grupo.loc[notas <= 6] = "Detrator"
+
+    df["NPS GRUPO"] = nps_grupo
     return df
 
 
