@@ -303,6 +303,12 @@ else:
 
 media_dias_paciente = fdf["DIAS ATÉ RETORNO PACIENTE"].mean()
 
+andamento_count = (fdf["SLA STATUS"] == "Em andamento no prazo").sum()
+atraso_count = (fdf["SLA STATUS"] == "Em atraso").sum()
+
+andamento_pct = (andamento_count / total * 100) if total else 0.0
+atraso_pct = (atraso_count / total * 100) if total else 0.0
+
 c1, c2, c3, c4 = st.columns(4)
 c1.metric("Total de manifestações", total)
 c2.metric("NPS Geral", f"{nps:.0f}")
@@ -311,6 +317,20 @@ if not np.isnan(media_dias_paciente):
     c4.metric("Dias médios até retorno ao paciente", f"{media_dias_paciente:.1f} d")
 else:
     c4.metric("Dias médios até retorno ao paciente", "—")
+
+c5, c6 = st.columns(2)
+c5.metric(
+    "Casos em andamento no prazo",
+    andamento_count,
+    delta=f"{andamento_pct:.1f}% do total",
+    delta_color="normal",
+)
+c6.metric(
+    "Casos em atraso",
+    atraso_count,
+    delta=f"{atraso_pct:.1f}% do total",
+    delta_color="inverse" if atraso_count > 0 else "normal",
+)
 
 kc1, kc2, kc3 = st.columns(3)
 if len(base_nps) > 0:
