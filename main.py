@@ -1,5 +1,6 @@
 import re
 from pathlib import Path
+from typing import Iterable, List, Sequence
 
 import numpy as np
 import pandas as pd
@@ -200,6 +201,32 @@ def add_nps_group(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+def chunked(seq: Sequence, size: int) -> Iterable[List]:
+    """Divide uma sequência em blocos de tamanho fixo."""
+    if size <= 0:
+        raise ValueError("size deve ser maior que zero")
+    for i in range(0, len(seq), size):
+        yield list(seq[i : i + size])
+
+
+def render_kpi_grid(kpis: Sequence[dict], per_row: int = 3) -> None:
+    """Renderiza métricas em uma grade responsiva usando colunas uniformes."""
+    if not kpis:
+        return
+
+    with st.container():
+        for chunk in chunked(kpis, per_row):
+            cols = st.columns(len(chunk))
+            for col, data in zip(cols, chunk):
+                col.metric(
+                    data.get("label", ""),
+                    data.get("value", ""),
+                    delta=data.get("delta"),
+                    delta_color=data.get("delta_color", "normal"),
+                    help=data.get("help"),
+                )
+
+
 # ---------------------------------------------------------
 # CARREGAR APENAS A ABA 2025
 # ---------------------------------------------------------
@@ -347,59 +374,89 @@ if "PLANO DE AÇÃO" in fdf.columns:
     plano_count = (plano_series != "").sum()
     plano_pct = (plano_count / total * 100) if total else 0.0
 
-c1, c2, c3, c4 = st.columns(4)
-c1.metric("Total de manifestações", total)
-c2.metric("NPS Geral", f"{nps:.0f}")
-c3.metric("SLA — resolvidos no prazo", f"{sla_pct:.1f}%")
-if not np.isnan(media_dias_paciente):
-    c4.metric("Dias médios até retorno ao paciente", f"{media_dias_paciente:.1f} d")
-else:
-    c4.metric("Dias médios até retorno ao paciente", "—")
+kpi_overview = [
+    {"label": "Total de manifestações", "value": total},
+    {"label": "NPS Geral", "value": f"{nps:.0f}"},
+    {"label": "SLA — resolvidos no prazo", "value": f"{sla_pct:.1f}%"},
+    {
+        "label": "Dias médios até retorno ao paciente",
+        "value": f"{media_dias_paciente:.1f} d"
+        if not np.isnan(media_dias_paciente)
+        else "—",
+    },
+]
 
-c5, c6 = st.columns(2)
-c5.metric(
-    "Casos em andamento no prazo",
-    andamento_count,
-    delta=f"{andamento_pct:.1f}% do total",
-    delta_color="normal",
-)
-c6.metric(
-    "Casos em atraso",
-    atraso_count,
-    delta=f"{atraso_pct:.1f}% do total",
-    delta_color="inverse" if atraso_count > 0 else "normal",
-)
+kpi_status = [
+    {
+        "label": "Casos em andamento no prazo",
+        "value": andamento_count,
+        "delta": f"{andamento_pct:.1f}% do total",
+        "delta_color": "normal",
+    },
+    {
+        "label": "Casos em atraso",
+        "value": atraso_count,
+        "delta": f"{atraso_pct:.1f}% do total",
+        "delta_color": "inverse" if atraso_count > 0 else "normal",
+    },
+]
 
-kc1, kc2, kc3 = st.columns(3)
 if len(base_nps) > 0:
-    kc1.metric("Promotores", f"{prom} ({prom / len(base_nps) * 100:.1f}%)")
-    kc2.metric("Neutros", str(neut))
-    kc3.metric("Detratores", f"{det} ({det / len(base_nps) * 100:.1f}%)")
+    prom_pct = prom / len(base_nps) * 100
+    det_pct = det / len(base_nps) * 100
 else:
-    kc1.metric("Promotores", "0")
-    kc2.metric("Neutros", "0")
-    kc3.metric("Detratores", "0")
+    prom_pct = det_pct = 0.0
 
-c_extra1, c_extra2, c_extra3 = st.columns(3)
-c_extra1.metric(
-    "Solicitado contato",
-    f"{solicitado_pct:.1f}%",
-    delta=f"{solicitado_count} casos",
-)
-c_extra2.metric(
-    "Retorno ao paciente registrado",
-    retorno_paciente_count,
-    delta=(
-        f"{retorno_pct:.1f}% do total"
-        if retorno_paciente_count > 0
-        else "Sem registros"
-    ),
-)
-c_extra3.metric(
-    "Planos de ação preenchidos",
-    plano_count,
-    delta=(f"{plano_pct:.1f}% do total" if plano_count > 0 else "Sem registros"),
-)
+kpi_nps = [
+    {
+        "label": "Promotores",
+        "value": (
+            f"{prom} ({prom_pct:.1f}%)" if len(base_nps) > 0 else "0"
+        ),
+    },
+    {
+        "label": "Neutros",
+        "value": str(neut) if len(base_nps) > 0 else "0",
+    },
+    {
+        "label": "Detratores",
+        "value": (
+            f"{det} ({det_pct:.1f}%)" if len(base_nps) > 0 else "0"
+        ),
+    },
+]
+
+kpi_extra = [
+    {
+        "label": "Solicitado contato",
+        "value": f"{solicitado_pct:.1f}%",
+        "delta": f"{solicitado_count} casos",
+    },
+    {
+        "label": "Retorno ao paciente registrado",
+        "value": retorno_paciente_count,
+        "delta": (
+            f"{retorno_pct:.1f}% do total"
+            if retorno_paciente_count > 0
+            else "Sem registros"
+        ),
+    },
+    {
+        "label": "Planos de ação preenchidos",
+        "value": plano_count,
+        "delta": (
+            f"{plano_pct:.1f}% do total" if plano_count > 0 else "Sem registros"
+        ),
+    },
+]
+
+render_kpi_grid(kpi_overview)
+st.divider()
+render_kpi_grid(kpi_status)
+st.divider()
+render_kpi_grid(kpi_nps)
+st.divider()
+render_kpi_grid(kpi_extra)
 
 if retorno_pos_contato > 0:
     st.caption(
