@@ -537,15 +537,25 @@ with st.container():
     colElo1, colElo2 = st.columns([1, 1.3])
 
     with colElo1:
-        st.subheader("Elogios", divider=False)
-        kpi_elogios = [
-            {
-                "label": "Elogios",
-                "value": elogios_count,
-                "delta": f"{elogios_pct:.1f}% do total",
-            }
-        ]
-        render_kpi_grid(kpi_elogios, per_row=1)
+        st.subheader("Tipos de chamado", divider=False)
+        tipo_counts = (
+            fdf["TIPO DE CHAMADO"]
+            .fillna("")
+            .astype(str)
+            .map(_normalize_text)
+            .value_counts()
+        )
+        tipos_exibicao = {
+            "elogio": "Elogios",
+            "reclamacao": "Reclamações",
+            "sugestao": "Sugestões",
+        }
+        kpi_tipos = []
+        for key, label in tipos_exibicao.items():
+            count = int(tipo_counts.get(key, 0))
+            delta = f"{(count / total * 100):.1f}% do total" if total else "Sem registros"
+            kpi_tipos.append({"label": label, "value": count, "delta": delta})
+        render_kpi_grid(kpi_tipos, per_row=1)
 
     with colElo2:
         st.subheader("Distribuição dos tipos", divider=False)
