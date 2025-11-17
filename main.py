@@ -19,6 +19,13 @@ st.markdown(
 div[data-testid="stMetricValue"] {color:#0F4C81;}
 h1, h2, h3 { color:#1f2a44; }
 section[data-testid="stSidebar"] {background-color:#f5f7fb}
+.panel {
+    background: #fdfefe;
+    border: 1px solid #e6eaf2;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.04);
+    border-radius: 12px;
+    padding: 18px;
+}
 </style>
 """,
     unsafe_allow_html=True,
@@ -525,19 +532,33 @@ with st.container():
     st.markdown("### Distribuição por tipo de chamado")
     st.caption("Indicadores calculados sobre os dados filtrados.")
 
-    colElo1, colElo2 = st.columns([1, 2])
+    st.markdown('<div class="panel">', unsafe_allow_html=True)
+
+    colElo1, colElo2 = st.columns([1, 1.3])
 
     with colElo1:
-        kpi_elogios = [
-            {
-                "label": "Elogios",
-                "value": elogios_count,
-                "delta": f"{elogios_pct:.1f}% do total",
-            }
-        ]
-        render_kpi_grid(kpi_elogios, per_row=1)
+        st.subheader("Tipos de chamado", divider=False)
+        tipo_counts = (
+            fdf["TIPO DE CHAMADO"]
+            .fillna("")
+            .astype(str)
+            .map(_normalize_text)
+            .value_counts()
+        )
+        tipos_exibicao = {
+            "elogio": "Elogios",
+            "reclamacao": "Reclamações",
+            "sugestao": "Sugestões",
+        }
+        kpi_tipos = []
+        for key, label in tipos_exibicao.items():
+            count = int(tipo_counts.get(key, 0))
+            delta = f"{(count / total * 100):.1f}% do total" if total else "Sem registros"
+            kpi_tipos.append({"label": label, "value": count, "delta": delta})
+        render_kpi_grid(kpi_tipos, per_row=1)
 
     with colElo2:
+        st.subheader("Distribuição dos tipos", divider=False)
         tipos_chamado = (
             fdf["TIPO DE CHAMADO"]
             .value_counts()
@@ -562,7 +583,12 @@ with st.container():
                 texttemplate="%{label}: %{value} (%{percent:.1%})",
                 hovertemplate="<b>%{label}</b><br>Chamados: %{value}<br>Participação: %{percent:.1%}<extra></extra>",
             )
-            fig_elogios.update_layout(legend_title_text="Tipo de chamado")
+            fig_elogios.update_layout(
+                legend_title_text="Tipo de chamado",
+                margin=dict(l=20, r=20, t=60, b=80),
+                title_x=0.5,
+                legend=dict(orientation="h", x=0.5, xanchor="center", y=-0.1),
+            )
             st.plotly_chart(fig_elogios, use_container_width=True)
 
     elogios_motivos = (
@@ -587,6 +613,8 @@ with st.container():
         fig_motivos.update_traces(textposition="outside")
         fig_motivos.update_layout(xaxis_title="Manifestação", yaxis_title="Quantidade")
         st.plotly_chart(fig_motivos, use_container_width=True)
+
+    st.markdown("</div>", unsafe_allow_html=True)
 
 # ---------------------------------------------------------
 # EVOLUÇÃO TEMPORAL
