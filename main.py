@@ -204,20 +204,20 @@ def add_nps_group(df: pd.DataFrame) -> pd.DataFrame:
 def add_manifestacao_flags(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
 
-    fonte_col = None
-    for col in ["MANIFESTAÇÃO", "TIPO DE CHAMADO"]:
-        if col in df.columns:
-            fonte_col = col
-            break
+    manifestacao_norm = pd.Series("", index=df.index, dtype="object")
+    if "MANIFESTAÇÃO" in df.columns:
+        manifestacao_norm = df["MANIFESTAÇÃO"].fillna("").astype(str).map(
+            _normalize_text
+        )
+    df["MANIFESTAÇÃO NORMALIZADA"] = manifestacao_norm
 
-    if fonte_col is None:
-        df["MANIFESTAÇÃO NORMALIZADA"] = ""
-        df["IS_ELOGIO"] = False
-        return df
-
-    normalizada = df[fonte_col].fillna("").astype(str).map(_normalize_text)
-    df["MANIFESTAÇÃO NORMALIZADA"] = normalizada
-    df["IS_ELOGIO"] = normalizada == "elogio"
+    tipo_norm = pd.Series("", index=df.index, dtype="object")
+    if "TIPO DE CHAMADO" in df.columns:
+        tipo_norm = df["TIPO DE CHAMADO"].fillna("").astype(str).map(
+            _normalize_text
+        )
+    df["TIPO DE CHAMADO NORMALIZADO"] = tipo_norm
+    df["IS_ELOGIO"] = tipo_norm == "elogio"
     return df
 
 
