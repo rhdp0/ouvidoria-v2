@@ -560,7 +560,7 @@ with st.container():
         .dropna()
         .value_counts()
         .reset_index(name="Quantidade")
-        .rename(columns={"index": "Manifestação"})
+        .rename(columns={manifestacao_col: "Manifestação"})
     )
 
     if elogios_motivos.empty:
