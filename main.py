@@ -522,7 +522,7 @@ if retorno_pos_contato > 0:
 st.divider()
 
 with st.container():
-    st.markdown("### Elogios x demais manifestações")
+    st.markdown("### Distribuição por tipo de chamado")
     st.caption("Indicadores calculados sobre os dados filtrados.")
 
     colElo1, colElo2 = st.columns([1, 2])
@@ -538,21 +538,32 @@ with st.container():
         render_kpi_grid(kpi_elogios, per_row=1)
 
     with colElo2:
-        elogios_dist = pd.DataFrame(
-            {
-                "Tipo": ["Elogio", "Demais manifestações"],
-                "Quantidade": [elogios_count, max(total - elogios_count, 0)],
-            }
+        tipos_chamado = (
+            fdf["TIPO DE CHAMADO"]
+            .value_counts()
+            .reset_index(name="Quantidade")
+            .rename(columns={"index": "TIPO DE CHAMADO"})
         )
-        fig_elogios = px.pie(
-            elogios_dist,
-            values="Quantidade",
-            names="Tipo",
-            hole=0.45,
-            title="Distribuição entre elogios e demais registros",
-        )
-        fig_elogios.update_traces(textposition="inside", texttemplate="%{label}: %{percent:.1%}")
-        st.plotly_chart(fig_elogios, use_container_width=True)
+
+        if tipos_chamado.empty:
+            st.info(
+                "Sem dados de tipos de chamado para exibir a distribuição com os filtros atuais."
+            )
+        else:
+            fig_elogios = px.pie(
+                tipos_chamado,
+                values="Quantidade",
+                names="TIPO DE CHAMADO",
+                hole=0.45,
+                title="Distribuição dos tipos de chamado",
+            )
+            fig_elogios.update_traces(
+                textposition="inside",
+                texttemplate="%{label}: %{value} (%{percent:.1%})",
+                hovertemplate="<b>%{label}</b><br>Chamados: %{value}<br>Participação: %{percent:.1%}<extra></extra>",
+            )
+            fig_elogios.update_layout(legend_title_text="Tipo de chamado")
+            st.plotly_chart(fig_elogios, use_container_width=True)
 
     elogios_motivos = (
         elogios_df[manifestacao_col]
