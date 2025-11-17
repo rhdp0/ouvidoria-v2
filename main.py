@@ -347,6 +347,13 @@ st.markdown("## 📊 Visão Geral")
 total = len(fdf)
 elogios_count = int(fdf.get("IS_ELOGIO", pd.Series(dtype=bool)).sum())
 elogios_pct = (elogios_count / total * 100) if total else 0.0
+elogios_df = fdf[fdf.get("IS_ELOGIO", pd.Series(dtype=bool))].copy()
+
+manifestacao_col = (
+    "MANIFESTAÇÃO NORMALIZADA"
+    if "MANIFESTAÇÃO NORMALIZADA" in elogios_df.columns
+    else "MANIFESTAÇÃO"
+)
 
 base_nps = fdf[fdf["NPS GRUPO"].notna()].copy()
 if len(base_nps) > 0:
@@ -546,6 +553,29 @@ with st.container():
         )
         fig_elogios.update_traces(textposition="inside", texttemplate="%{label}: %{percent:.1%}")
         st.plotly_chart(fig_elogios, use_container_width=True)
+
+    elogios_motivos = (
+        elogios_df[manifestacao_col]
+        .replace("", pd.NA)
+        .dropna()
+        .value_counts()
+        .reset_index(name="Quantidade")
+        .rename(columns={"index": "Manifestação"})
+    )
+
+    if elogios_motivos.empty:
+        st.info("Sem dados de elogios para detalhar os motivos nos filtros atuais.")
+    else:
+        fig_motivos = px.bar(
+            elogios_motivos,
+            x="Manifestação",
+            y="Quantidade",
+            title="Motivos dos elogios",
+            text="Quantidade",
+        )
+        fig_motivos.update_traces(textposition="outside")
+        fig_motivos.update_layout(xaxis_title="Manifestação", yaxis_title="Quantidade")
+        st.plotly_chart(fig_motivos, use_container_width=True)
 
 # ---------------------------------------------------------
 # EVOLUÇÃO TEMPORAL
