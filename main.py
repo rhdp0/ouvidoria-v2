@@ -201,6 +201,26 @@ def add_nps_group(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+def add_manifestacao_flags(df: pd.DataFrame) -> pd.DataFrame:
+    df = df.copy()
+
+    fonte_col = None
+    for col in ["MANIFESTAÇÃO", "TIPO DE CHAMADO"]:
+        if col in df.columns:
+            fonte_col = col
+            break
+
+    if fonte_col is None:
+        df["MANIFESTAÇÃO NORMALIZADA"] = ""
+        df["IS_ELOGIO"] = False
+        return df
+
+    normalizada = df[fonte_col].fillna("").astype(str).map(_normalize_text)
+    df["MANIFESTAÇÃO NORMALIZADA"] = normalizada
+    df["IS_ELOGIO"] = normalizada == "elogio"
+    return df
+
+
 def chunked(seq: Sequence, size: int) -> Iterable[List]:
     """Divide uma sequência em blocos de tamanho fixo."""
     if size <= 0:
@@ -249,6 +269,7 @@ def load_tab_2025(file_like) -> pd.DataFrame:
     df = compute_sla(df)
     df = add_date_parts(df)
     df = add_nps_group(df)
+    df = add_manifestacao_flags(df)
     return df
 
 
@@ -295,6 +316,7 @@ sel_canais = st.sidebar.multiselect("Canal", canais_unicos)
 sel_tipos = st.sidebar.multiselect("Tipo de Chamado", tipos_unicos)
 sel_crit = st.sidebar.multiselect("Criticidade", crit_unicas)
 sel_setor = st.sidebar.multiselect("Setor", setores_unicos)
+somente_elogios = st.sidebar.toggle("Somente elogios", value=False)
 
 fdf = df.copy()
 
@@ -310,6 +332,8 @@ if sel_crit:
     fdf = fdf[fdf["CRITICIDADE"].isin(sel_crit)]
 if sel_setor:
     fdf = fdf[fdf["SETOR NOTIFICADO"].isin(sel_setor)]
+if somente_elogios:
+    fdf = fdf[fdf["IS_ELOGIO"]]
 
 if fdf.empty:
     st.warning("Nenhum dado encontrado com os filtros selecionados.")
@@ -321,6 +345,8 @@ if fdf.empty:
 st.markdown("## 📊 Visão Geral")
 
 total = len(fdf)
+elogios_count = int(fdf.get("IS_ELOGIO", pd.Series(dtype=bool)).sum())
+elogios_pct = (elogios_count / total * 100) if total else 0.0
 
 base_nps = fdf[fdf["NPS GRUPO"].notna()].copy()
 if len(base_nps) > 0:
@@ -376,6 +402,11 @@ if "PLANO DE AÇÃO" in fdf.columns:
 
 kpi_overview = [
     {"label": "Total de manifestações", "value": total},
+    {
+        "label": "Elogios (volume)",
+        "value": elogios_count,
+        "delta": f"{elogios_pct:.1f}% do total",
+    },
     {"label": "NPS Geral", "value": f"{nps:.0f}"},
     {"label": "SLA — resolvidos no prazo", "value": f"{sla_pct:.1f}%"},
     {
@@ -480,6 +511,41 @@ if retorno_pos_contato > 0:
     st.caption(
         f"• {retorno_pos_contato} manifestações possuem 'Solicitado contato' e já contam com retorno registrado."
     )
+
+st.divider()
+
+with st.container():
+    st.markdown("### Elogios x demais manifestações")
+    st.caption("Indicadores calculados sobre os dados filtrados.")
+
+    colElo1, colElo2 = st.columns([1, 2])
+
+    with colElo1:
+        kpi_elogios = [
+            {
+                "label": "Elogios",
+                "value": elogios_count,
+                "delta": f"{elogios_pct:.1f}% do total",
+            }
+        ]
+        render_kpi_grid(kpi_elogios, per_row=1)
+
+    with colElo2:
+        elogios_dist = pd.DataFrame(
+            {
+                "Tipo": ["Elogio", "Demais manifestações"],
+                "Quantidade": [elogios_count, max(total - elogios_count, 0)],
+            }
+        )
+        fig_elogios = px.pie(
+            elogios_dist,
+            values="Quantidade",
+            names="Tipo",
+            hole=0.45,
+            title="Distribuição entre elogios e demais registros",
+        )
+        fig_elogios.update_traces(textposition="inside", texttemplate="%{label}: %{percent:.1%}")
+        st.plotly_chart(fig_elogios, use_container_width=True)
 
 # ---------------------------------------------------------
 # EVOLUÇÃO TEMPORAL
