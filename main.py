@@ -125,12 +125,18 @@ def compute_sla(df: pd.DataFrame) -> pd.DataFrame:
             df[col] = pd.to_datetime(df[col], errors="coerce")
 
     # prazo em dias
-    df["PRAZO DIAS"] = pd.to_numeric(df.get("PRAZO PARA RETORNO"), errors="coerce")
+    if "PRAZO PARA RETORNO" in df.columns:
+        prazo_numerico = pd.to_numeric(df["PRAZO PARA RETORNO"], errors="coerce")
+        df["PRAZO DIAS"] = prazo_numerico.mask(np.abs(prazo_numerico) > 3650)
+    else:
+        df["PRAZO DIAS"] = pd.Series(pd.NA, index=df.index, dtype="float")
 
     # data limite
-    df["DATA LIMITE GESTOR"] = df["DATA DO ENVIO AO GESTOR"] + pd.to_timedelta(
-        df["PRAZO DIAS"], unit="D"
-    )
+    df["DATA LIMITE GESTOR"] = pd.NaT
+    prazo_valido = df["PRAZO DIAS"].notna() & df["DATA DO ENVIO AO GESTOR"].notna()
+    df.loc[prazo_valido, "DATA LIMITE GESTOR"] = df.loc[
+        prazo_valido, "DATA DO ENVIO AO GESTOR"
+    ] + pd.to_timedelta(df.loc[prazo_valido, "PRAZO DIAS"], unit="D")
 
     today = pd.Timestamp("today").normalize()
     sla_status = []
