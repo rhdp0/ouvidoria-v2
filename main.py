@@ -75,7 +75,8 @@ COL_CANONICAL = {
     "area": "ÁREA",
     "criticidade": "CRITICIDADE",
     "data do envio ao gestor": "DATA DO ENVIO AO GESTOR",
-    "prazo para retorno (dia)": "PRAZO PARA RETORNO (DIA)",
+    "prazo para retorno": "PRAZO PARA RETORNO",
+    "prazo para retorno (dia)": "PRAZO PARA RETORNO",
     "status": "STATUS",
     "nota": "NOTA",
     "classificacao nps": "CLASSIFICAÇÃO NPS",
@@ -105,7 +106,7 @@ def rename_columns(df: pd.DataFrame) -> pd.DataFrame:
         if n in norms:
             rename_map[col] = norms[n]
     df = df.rename(columns=rename_map)
-    keep = [c for c in COL_CANONICAL.values() if c in df.columns]
+    keep = list(dict.fromkeys(c for c in COL_CANONICAL.values() if c in df.columns))
     return df[keep].copy()
 
 
@@ -124,7 +125,7 @@ def compute_sla(df: pd.DataFrame) -> pd.DataFrame:
             df[col] = pd.to_datetime(df[col], errors="coerce")
 
     # prazo em dias
-    df["PRAZO DIAS"] = pd.to_numeric(df.get("PRAZO PARA RETORNO (DIA)"), errors="coerce")
+    df["PRAZO DIAS"] = pd.to_numeric(df.get("PRAZO PARA RETORNO"), errors="coerce")
 
     # data limite
     df["DATA LIMITE GESTOR"] = df["DATA DO ENVIO AO GESTOR"] + pd.to_timedelta(
