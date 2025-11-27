@@ -921,69 +921,9 @@ with colF:
             )
             st.plotly_chart(fig_nps_setor, use_container_width=True)
         else:
-        st.info("Sem dados de NPS por setor nos filtros atuais.")
+            st.info("Sem dados de NPS por setor nos filtros atuais.")
     else:
         st.info("Não há dados suficientes de NPS para análise por setor.")
-
-st.markdown("### Reclamações por setor notificado")
-st.caption(
-    "Dados filtrados apenas para registros cujo tipo de chamado foi normalizado como reclamação."
-)
-
-reclamacoes_df = fdf[
-    fdf.get("TIPO DE CHAMADO NORMALIZADO", pd.Series(dtype="object"))
-    == "reclamacao"
-].copy()
-
-if "SETOR NOTIFICADO" not in reclamacoes_df.columns or reclamacoes_df.empty:
-    st.info("Não há reclamações com setor notificado nos filtros atuais.")
-else:
-    setores_reclam = (
-        reclamacoes_df["SETOR NOTIFICADO"]
-        .replace("", pd.NA)
-        .dropna()
-        .value_counts()
-        .reset_index(name="Quantidade")
-        .rename(columns={"index": "SETOR NOTIFICADO"})
-    )
-
-    if setores_reclam.empty:
-        st.info("Não há reclamações com setor preenchido nos filtros atuais.")
-    else:
-        setores_reclam = setores_reclam.sort_values("Quantidade", ascending=False)
-        setores_reclam["Destaque"] = np.where(
-            setores_reclam.index == setores_reclam.index[0],
-            "Setor líder",
-            "Demais setores",
-        )
-
-        total_reclamacoes = setores_reclam["Quantidade"].sum()
-        top_row = setores_reclam.iloc[0]
-        top_pct = (top_row["Quantidade"] / total_reclamacoes * 100) if total_reclamacoes else 0
-
-        c_rec1, c_rec2 = st.columns([1, 2])
-        c_rec1.metric(
-            "Setor líder em reclamações",
-            top_row["SETOR NOTIFICADO"],
-            delta=f"{top_row['Quantidade']} casos ({top_pct:.1f}% das reclamações)",
-        )
-
-        fig_reclam_setor = px.bar(
-            setores_reclam,
-            x="Quantidade",
-            y="SETOR NOTIFICADO",
-            orientation="h",
-            title="Reclamações por setor notificado",
-            text="Quantidade",
-            color="Destaque",
-            color_discrete_map={
-                "Setor líder": "#0F4C81",
-                "Demais setores": "#9ca3af",
-            },
-        )
-        fig_reclam_setor.update_traces(textposition="outside")
-        fig_reclam_setor.update_layout(showlegend=True, legend_title_text="")
-        c_rec2.plotly_chart(fig_reclam_setor, use_container_width=True)
 
 colG, colH = st.columns(2)
 
