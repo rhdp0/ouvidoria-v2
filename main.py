@@ -353,6 +353,8 @@ if fdf.empty:
     st.warning("Nenhum dado encontrado com os filtros selecionados.")
     st.stop()
 
+reclamacoes_df = fdf[fdf["TIPO DE CHAMADO NORMALIZADO"] == "reclamacao"].copy()
+
 # ---------------------------------------------------------
 # KPIs
 # ---------------------------------------------------------
@@ -799,6 +801,46 @@ with colB:
     else:
         st.info("Sem dados para tipo de chamado nos filtros atuais.")
 
+    st.markdown("#### Reclamações — motivos mais frequentes")
+    if not reclamacoes_df.empty and "MANIFESTAÇÃO" in reclamacoes_df.columns:
+        motivos_reclamacao = (
+            reclamacoes_df["MANIFESTAÇÃO"]
+            .fillna("Não informado")
+            .astype(str)
+            .str.strip()
+            .replace("", "Não informado")
+            .value_counts()
+            .reset_index(name="Quantidade")
+            .rename(columns={"index": "MANIFESTAÇÃO"})
+        )
+
+        if not motivos_reclamacao.empty:
+            motivos_top = motivos_reclamacao.head(10)
+            destaque_motivo = motivos_top.iloc[0]
+
+            col_kpi_motivo, col_chart_motivo = st.columns([1, 3])
+            col_kpi_motivo.metric(
+                "Motivo líder (reclamações)",
+                destaque_motivo["MANIFESTAÇÃO"],
+                delta=f"{int(destaque_motivo['Quantidade'])} casos",
+            )
+
+            fig_motivos = px.bar(
+                motivos_top,
+                x="Quantidade",
+                y="MANIFESTAÇÃO",
+                orientation="h",
+                title="Top motivos das reclamações",
+                text="Quantidade",
+            )
+            fig_motivos.update_traces(textposition="outside")
+            fig_motivos.update_layout(yaxis_title="Motivo", xaxis_title="Quantidade")
+            col_chart_motivo.plotly_chart(fig_motivos, use_container_width=True)
+        else:
+            st.info("Não há motivos de manifestação preenchidos para reclamações.")
+    else:
+        st.info("Nenhum registro classificado como reclamação nos filtros atuais.")
+
 colC, colD = st.columns(2)
 
 with colC:
@@ -874,7 +916,6 @@ else:
 # ---------------------------------------------------------
 st.markdown("## 🏥 Setores, SLA e NPS")
 
-reclamacoes_df = fdf[fdf["TIPO DE CHAMADO NORMALIZADO"] == "reclamacao"].copy()
 st.markdown("#### Setores com mais reclamações (recorte de reclamações)")
 if not reclamacoes_df.empty:
     setores_reclamacao = (
