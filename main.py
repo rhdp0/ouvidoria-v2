@@ -874,6 +874,47 @@ else:
 # ---------------------------------------------------------
 st.markdown("## 🏥 Setores, SLA e NPS")
 
+reclamacoes_df = fdf[fdf["TIPO DE CHAMADO NORMALIZADO"] == "reclamacao"].copy()
+st.markdown("#### Setores com mais reclamações (recorte de reclamações)")
+if not reclamacoes_df.empty:
+    setores_reclamacao = (
+        reclamacoes_df["SETOR NOTIFICADO"]
+        .value_counts()
+        .reset_index(name="Quantidade")
+        .rename(columns={"index": "SETOR NOTIFICADO"})
+    )
+
+    if not setores_reclamacao.empty:
+        setores_reclamacao = setores_reclamacao.sort_values(
+            "Quantidade", ascending=False
+        ).head(15)
+        destaque = setores_reclamacao.iloc[0]
+
+        col_kpi_reclamacao, col_chart_reclamacao = st.columns([1, 3])
+
+        col_kpi_reclamacao.metric(
+            "Setor com mais reclamações",
+            destaque["SETOR NOTIFICADO"],
+            delta=f"{int(destaque['Quantidade'])} casos",
+        )
+
+        fig_reclamacao_setor = px.bar(
+            setores_reclamacao,
+            x="Quantidade",
+            y="SETOR NOTIFICADO",
+            orientation="h",
+            title="Top setores por volume de reclamações",
+            text="Quantidade",
+        )
+        fig_reclamacao_setor.update_traces(textposition="outside")
+        col_chart_reclamacao.plotly_chart(
+            fig_reclamacao_setor, use_container_width=True
+        )
+    else:
+        st.info("Sem dados de setor para reclamações nos filtros atuais.")
+else:
+    st.info("Nenhum registro classificado como reclamação nos filtros atuais.")
+
 colE, colF = st.columns(2)
 
 with colE:
