@@ -801,6 +801,8 @@ with colB:
     else:
         st.info("Sem dados para tipo de chamado nos filtros atuais.")
 
+motivos_container = st.container()
+with motivos_container:
     st.markdown("#### Reclamações — motivos mais frequentes")
     if not reclamacoes_df.empty and "MANIFESTAÇÃO" in reclamacoes_df.columns:
         motivos_reclamacao = (
@@ -818,7 +820,7 @@ with colB:
             motivos_top = motivos_reclamacao.head(10)
             destaque_motivo = motivos_top.iloc[0]
 
-            col_kpi_motivo, col_chart_motivo = st.columns([1, 3])
+            col_kpi_motivo, col_chart_motivo = st.columns([1, 2])
             col_kpi_motivo.metric(
                 "Motivo líder (reclamações)",
                 destaque_motivo["MANIFESTAÇÃO"],
