@@ -680,18 +680,19 @@ with st.expander("Volume agregado e tendência", expanded=True):
         )
 
         if not grouped.empty:
+            label_order = list(dict.fromkeys(grouped["LABEL"].tolist()))
             fig_period = px.bar(
                 grouped,
-                x="PERIODO_DATA",
+                x="LABEL",
                 y="Quantidade",
                 text="Quantidade",
                 title=f"Volume {freq_choice.lower()} de manifestações",
+                category_orders={"LABEL": label_order},
             )
             fig_period.update_traces(textposition="outside")
             fig_period.update_layout(
                 xaxis_title="Período", yaxis_title="Quantidade", showlegend=False
             )
-            fig_period.update_xaxes(tickformat="%b/%Y")
             st.plotly_chart(fig_period, use_container_width=True)
 
             last_row = grouped.iloc[-1]
